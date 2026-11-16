@@ -29,28 +29,30 @@ perfectTolerance: 1.5,
 basePeriodMs: 2400,
 minPeriodMs: 900,
 periodDecayPerFloor: 0.96,
-// スコア係数: 1段あたりの点数
-pointsPerFloor: 100,
-// PERFECT ボーナス: 連続コンボ n 回目のボーナスは
-// perfectBaseBonus + perfectComboStep * (n - 1)
-perfectBaseBonus: 50,
-perfectComboStep: 25,
-// 逓減 (ユーザー決定 2026-11-17「積み重ねるほど貰えるポイントを減らす」):
-// 1段の得点は floorPointsDecayEvery 段ごとに floorPointsDecayFactor 倍に
-// なり、floorPointsMin で止まる。超人的な長ラン (bot等) の旨みを潰し、
-// 上位のスコア差を圧縮する。帯と係数は仮値・未決定 (DESIGN.md §4.1)。
-floorPointsDecayEvery: 10,
-floorPointsDecayFactor: 0.5,
-floorPointsMin: 10,
+// (スコアの得点表は下の FLOOR_POINTS_X10 が正)
+// PERFECTボーナス【ユーザー指定 2026-11-17】: PERFECT の段は得点 ×2、
+// 連続PERFECTでは ×3、×4 と上がり、×4 で頭打ち。
+// (コンボ n 回目 = 得点 × min(4, n+1))
 };
 
-// その段 (level) で得られる点数。(基本点 + PERFECTボーナス) に逓減を適用。
-export function pointsForLevel(level, config = GAME_CONFIG, bonus = 0) {
-const band = Math.floor(level / config.floorPointsDecayEvery);
-const scaled = Math.round(
-(config.pointsPerFloor + bonus) * Math.pow(config.floorPointsDecayFactor, band),
-);
-return Math.max(config.floorPointsMin, scaled);
+// 段ごとの得点表【決定: ユーザー指定 2026-11-17】
+// level は 0 始まり (level 0 = 1段目 = 10,000 点)。
+// 内部単位は 0.1 点 (×10 の整数): 0.5 や 0.1 を整数のまま扱うため。
+// スコア・ポイントはすべてこの単位で保持し、表示時に 1/10 する。
+// 表より先の段は 0 点。PERFECT でも通常でも、その段の得点は同じ。
+export const FLOOR_POINTS_X10 = [
+100000, 99000, 98000, 97000, 96000, 95000, 94000, 93000, 92000, 91000,
+90000, 89000, 88000, 87000, 86000, 85000, 84000, 83000, 82000, 81000,
+80000, 78000, 76000, 74000, 72000, 70000, 68000, 66000, 64000, 62000,
+60000, 57500, 55000, 52500, 50000, 47500, 45000, 42500, 40000, 36000,
+32000, 28000, 24000, 20000, 15000, 10000, 9000, 8000, 7000, 6000,
+5000, 4000, 3000, 2000, 1000, 500, 420, 240, 100, 50,
+40, 30, 20, 10, 5, 1, 1, 1, 0, 0, 0,
+];
+
+// その段 (level, 0始まり) の得点 (0.1点単位)。表の範囲外は 0。
+export function pointsForLevel(level) {
+return level >= 0 && level < FLOOR_POINTS_X10.length ? FLOOR_POINTS_X10[level] : 0;
 }
 
 // ---------- seed / PRNG ----------
@@ -161,8 +163,9 @@ if (Math.abs(offset) <= config.perfectTolerance) {
 combo += 1;
 maxCombo = Math.max(maxCombo, combo);
 perfects += 1;
-const bonus = config.perfectBaseBonus + config.perfectComboStep * (combo - 1);
-const points = pointsForLevel(level, config, bonus);
+const base = pointsForLevel(level);
+// PERFECTボーナス【ユーザー指定】: ×2、連続で ×3、×4 まで
+const points = base * Math.min(4, combo + 1);
 score += points;
 floors.push({
 level, tapMs, blockLeft, widthBefore, offset,
@@ -188,7 +191,7 @@ break;
 }
 
 combo = 0;
-const points = pointsForLevel(level, config, 0);
+const points = pointsForLevel(level);
 score += points;
 floors.push({
 level, tapMs, blockLeft, widthBefore, offset,

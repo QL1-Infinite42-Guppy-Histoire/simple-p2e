@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { fetchHistory, fetchPayouts } from '../api';
+import { formatScore } from '../gameLogic';
 import { CardLabel, GlassCard, styles } from '../ui';
 
 type Entry = { id: number; type: string; pointsDelta: number; memo: string | null; createdAt: number };
@@ -46,7 +47,7 @@ export default function HistoryScreen({ localOnly, refreshKey }: { localOnly: bo
               </Text>
               <Text style={styles.rankScore}>
                 {e.pointsDelta > 0 ? '+' : ''}
-                {e.pointsDelta.toLocaleString()} pt
+                {formatScore(e.pointsDelta)} pt
               </Text>
             </View>
           ))

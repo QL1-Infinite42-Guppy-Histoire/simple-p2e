@@ -28,7 +28,7 @@ test("simulate is reachable through the app path and deterministic", () => {
 });
 
 test("share text: score + floors + rank, and never any QOM/earnings wording", () => {
-  const text = buildShareText({ score: 12345, floors: 42, rank: 3, isDailyBest: true });
+  const text = buildShareText({ score: 123450, floors: 42, rank: 3, isDailyBest: true }); // 内部単位は0.1点
   assert.ok(text.includes("12,345点"));
   assert.ok(text.includes("42段"));
   assert.ok(text.includes("今日3位"));
@@ -43,7 +43,8 @@ test("share text without a rank omits the rank part", () => {
 });
 
 test("rank gap text: only for non-top ranks with a known gap", () => {
-  assert.equal(rankGapText(3, 201), "あと201点で2位");
+  assert.equal(rankGapText(3, 2010), "あと201点で2位"); // 内部単位は0.1点
+  assert.equal(rankGapText(3, 2015), "あと201.5点で2位");
   assert.equal(rankGapText(1, null), null);
   assert.equal(rankGapText(2, null), null);
   assert.equal(rankGapText(null, 10), null);

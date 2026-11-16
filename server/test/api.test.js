@@ -128,32 +128,32 @@ test("fake claimed score is ignored — the replay decides", async () => {
 });
 
 test("daily best: only the difference earns, capped by the daily cap", async () => {
-  // ボーナス係数を 0 にした設定では スコア = 段数 × 100 で予測できる
-  const noBonus = { perfectBaseBonus: 0, perfectComboStep: 0 };
-  const env = makeEnv({ config: { dailyEarnCapPoints: 450, holdMs: 0, maxAttemptsPerDay: 10 }, game: noBonus });
-  const cfg = { ...GAME_CONFIG, ...noBonus };
+  // 全段PERFECTのタップ列なので、スコアは得点表×倍率 (×2,×3,×4…) で予測できる:
+  // 3段 = 100000×2 + 99000×3 + 98000×4 = 889,000 (0.1点単位)
+  // 5段 = 889,000 + 97000×4 + 96000×4 = 1,661,000
+  const env = makeEnv({ config: { dailyEarnCapPoints: 1000000, holdMs: 0, maxAttemptsPerDay: 10 } });
   const acct = await register(env);
 
-  const p1 = await playFloors(env, acct.deviceToken, 3, cfg);
-  assert.equal(p1.submit.json.verifiedScore, 300);
-  assert.equal(p1.submit.json.pointsEarned, 300);
+  const p1 = await playFloors(env, acct.deviceToken, 3);
+  assert.equal(p1.submit.json.verifiedScore, 889000);
+  assert.equal(p1.submit.json.pointsEarned, 889000);
 
-  const pLow = await playFloors(env, acct.deviceToken, 2, cfg);
+  const pLow = await playFloors(env, acct.deviceToken, 2);
   assert.equal(pLow.submit.json.isDailyBest, false);
   assert.equal(pLow.submit.json.pointsEarned, 0);
 
-  const p2 = await playFloors(env, acct.deviceToken, 5, cfg);
-  assert.equal(p2.submit.json.verifiedScore, 500);
-  assert.equal(p2.submit.json.pointsEarned, 150); // 差分200だが上限450で頭打ち
+  const p2 = await playFloors(env, acct.deviceToken, 5);
+  assert.equal(p2.submit.json.verifiedScore, 1661000);
+  assert.equal(p2.submit.json.pointsEarned, 111000); // 差分772,000だが上限1,000,000で頭打ち
 
-  const p3 = await playFloors(env, acct.deviceToken, 5, cfg);
+  const p3 = await playFloors(env, acct.deviceToken, 5);
   assert.equal(p3.submit.json.pointsEarned, 0); // 上限到達後は増えない
 
   const me = await call(env, "GET", "/me", { token: acct.deviceToken });
-  assert.equal(me.json.todayBest, 500);
-  assert.equal(me.json.todayEarned, 450);
-  assert.equal(me.json.balances.total, 450);
-  assert.equal(me.json.balances.confirmed, 450); // holdMs=0 なので即確定
+  assert.equal(me.json.todayBest, 1661000);
+  assert.equal(me.json.todayEarned, 1000000);
+  assert.equal(me.json.balances.total, 1000000);
+  assert.equal(me.json.balances.confirmed, 1000000); // holdMs=0 なので即確定
 });
 
 test("hold period: fresh earnings are pending, then confirmed when hold is 0", async () => {
@@ -166,20 +166,18 @@ test("hold period: fresh earnings are pending, then confirmed when hold is 0", a
 });
 
 test("ranking: daily order, caller's rank and the rival above", async () => {
-  const noBonus = { perfectBaseBonus: 0, perfectComboStep: 0 };
-  const env = makeEnv({ game: noBonus });
-  const cfg = { ...GAME_CONFIG, ...noBonus };
+  const env = makeEnv();
   const a = await register(env);
   const b = await register(env);
-  await playFloors(env, a.deviceToken, 5, cfg); // 500
-  const pb = await playFloors(env, b.deviceToken, 3, cfg); // 300
+  await playFloors(env, a.deviceToken, 5); // 1,661,000
+  const pb = await playFloors(env, b.deviceToken, 3); // 889,000
   assert.equal(pb.submit.json.ranking.me.rank, 2);
   assert.equal(pb.submit.json.ranking.above.accountId, a.accountId);
-  assert.equal(pb.submit.json.ranking.pointsToNextRank, 201); // あと201点で1位
+  assert.equal(pb.submit.json.ranking.pointsToNextRank, 772001); // あと772,001 (0.1点単位) で1位
 
   const daily = await call(env, "GET", "/ranking/daily", { token: b.deviceToken });
   assert.equal(daily.json.top[0].accountId, a.accountId);
-  assert.equal(daily.json.top[0].score, 500);
+  assert.equal(daily.json.top[0].score, 1661000);
   assert.equal(daily.json.totalPlayers, 2);
 });
 

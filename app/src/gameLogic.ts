@@ -19,10 +19,19 @@ export function localDailySeed(nowMs: number = Date.now()): number {
 return dailySeed(jstToday(nowMs));
 }
 
+// スコア/ポイントは内部で 0.1点単位 (×10 の整数。得点表に 0.5/0.1 があるため)。
+// 表示は 1/10 して、整数なら整数、小数があれば小数1桁で出す。
+export function formatScore(x10: number): string {
+const v = x10 / 10;
+return Number.isInteger(v)
+? v.toLocaleString()
+: v.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
 // 「あと○点で○位」表示。すでに1位なら null。
 export function rankGapText(myRank: number | null, pointsToNextRank: number | null): string | null {
 if (myRank === null || myRank <= 1 || pointsToNextRank === null) return null;
-return `あと${pointsToNextRank.toLocaleString()}点で${myRank - 1}位`;
+return `あと${formatScore(pointsToNextRank)}点で${myRank - 1}位`;
 }
 
 // SNS シェア文。スコアと順位だけを自慢する。
@@ -34,7 +43,7 @@ rank: number | null;
 isDailyBest: boolean;
 }): string {
 const parts = [
-`${APP_NAME_PROVISIONAL}で${result.score.toLocaleString()}点！`,
+`${APP_NAME_PROVISIONAL}で${formatScore(result.score)}点！`,
 `${result.floors}段積み上げた`,
 ];
 if (result.rank!== null) parts.push(`今日${result.rank}位`);

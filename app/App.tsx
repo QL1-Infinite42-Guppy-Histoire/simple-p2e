@@ -7,7 +7,7 @@ import {
   ensureDeviceRegistration, fetchMe, getStoredRecoveryCode,
   type MeResponse,
 } from './src/api';
-import { APP_NAME_PROVISIONAL, rankGapText } from './src/gameLogic';
+import { APP_NAME_PROVISIONAL, formatScore, rankGapText } from './src/gameLogic';
 import { CardLabel, GalaxyBackground, GlassCard, PrimaryButton, styles } from './src/ui';
 import PlayScreen from './src/screens/PlayScreen';
 import RankingScreen from './src/screens/RankingScreen';
@@ -120,11 +120,11 @@ export default function App() {
                 <View style={styles.pointsRow}>
                   <View style={styles.pointBox}>
                     <Text style={styles.pointLabel}>保留中</Text>
-                    <Text style={styles.pointValue}>{(me?.balances.pending ?? 0).toLocaleString()} pt</Text>
+                    <Text style={styles.pointValue}>{formatScore(me?.balances.pending ?? 0)} pt</Text>
                   </View>
                   <View style={styles.pointBox}>
                     <Text style={styles.pointLabel}>確定</Text>
-                    <Text style={styles.pointValue}>{(me?.balances.confirmed ?? 0).toLocaleString()} pt</Text>
+                    <Text style={styles.pointValue}>{formatScore(me?.balances.confirmed ?? 0)} pt</Text>
                   </View>
                 </View>
                 <Text style={styles.note}>
@@ -138,7 +138,7 @@ export default function App() {
               <GlassCard>
                 <CardLabel>今日の記録</CardLabel>
                 <Text style={styles.bigNumber}>
-                  {(me?.todayBest ?? 0).toLocaleString()}
+                  {formatScore(me?.todayBest ?? 0)}
                   <Text style={styles.unit}> 点（今日のベスト）</Text>
                 </Text>
                 {me?.ranking.me ? (

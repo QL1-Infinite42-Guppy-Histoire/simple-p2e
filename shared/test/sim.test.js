@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  FIELD_WIDTH, GAME_CONFIG, dailySeed, seedPhase, periodForLevel,
+  FIELD_WIDTH, FLOOR_POINTS_X10, GAME_CONFIG, dailySeed, seedPhase, periodForLevel,
   blockLeftAt, pointsForLevel, simulate,
 } from "../sim.js";
 
@@ -81,11 +81,11 @@ test("PERFECT snap: aligned taps keep full width and grow combo bonus", () => {
     assert.equal(f.perfect, true);
     assert.equal(f.newWidth, GAME_CONFIG.initialWidth); // 切り落とされない
   }
-  // スコア = 3段 × pointsPerFloor + ボーナス (50 + 75 + 100)
-  const expected = 3 * GAME_CONFIG.pointsPerFloor
-    + GAME_CONFIG.perfectBaseBonus
-    + (GAME_CONFIG.perfectBaseBonus + GAME_CONFIG.perfectComboStep)
-    + (GAME_CONFIG.perfectBaseBonus + GAME_CONFIG.perfectComboStep * 2);
+  // スコア = 得点表 × PERFECT倍率 (×2, ×3, ×4)
+  const expected = [0, 1, 2].reduce(
+    (sum, level) => sum + FLOOR_POINTS_X10[level] * Math.min(4, level + 2),
+    0,
+  );
   assert.equal(r.score, expected);
 });
 
@@ -105,7 +105,7 @@ test("trim math: a half-overlap tap keeps only the overlap", () => {
   assert.equal(r.gameOver, false);
   assert.equal(r.floors[1].perfect, false);
   assert.ok(Math.abs(r.floors[1].newWidth - width / 2) < 1.2, `newWidth=${r.floors[1].newWidth}`);
-  assert.equal(r.floors[1].points, GAME_CONFIG.pointsPerFloor); // PERFECT ボーナスなし
+  assert.equal(r.floors[1].points, FLOOR_POINTS_X10[1]); // PERFECT ボーナスなし
 });
 
 test("game over: a tap with zero overlap ends the run and ignores later taps", () => {
@@ -127,7 +127,8 @@ test("game over: a tap with zero overlap ends the run and ignores later taps", (
   assert.equal(r.gameOver, true);
   assert.equal(r.floorsStacked, 1);
   assert.equal(r.floors.length, 2); // 3回目のタップは処理されない
-  assert.equal(r.score, GAME_CONFIG.pointsPerFloor + GAME_CONFIG.perfectBaseBonus);
+  // 1段 PERFECT のみ: 100,000 × 2 = 200,000 (0.1点単位)
+  assert.equal(r.score, FLOOR_POINTS_X10[0] * 2);
 });
 
 test("invalid tap lists are rejected", () => {
@@ -143,19 +144,23 @@ test("empty tap list is a zero run", () => {
   assert.equal(r.gameOver, false);
 });
 
-test("diminishing points: per-floor points halve every band and floor at the min", () => {
-  assert.equal(pointsForLevel(0), 100);
-  assert.equal(pointsForLevel(9), 100);
-  assert.equal(pointsForLevel(10), 50);
-  assert.equal(pointsForLevel(20), 25);
-  assert.equal(pointsForLevel(45), 10); // min clamp
-  // A long PERFECT run scores strictly less than the same run without decay.
-  const taps = perfectTaps(SEED, 30);
-  const withDecay = simulate(SEED, taps);
-  const noDecay = simulate(SEED, taps, { ...GAME_CONFIG, floorPointsDecayFactor: 1, floorPointsMin: 0 });
-  assert.ok(withDecay.score < noDecay.score, `${withDecay.score} < ${noDecay.score}`);
-  // Per-floor points in later bands are lower than in the first band.
-  const late = withDecay.floors[25].points;
-  const early = withDecay.floors[0].points;
-  assert.ok(late < early + 25 * 25, "combo growth must not explode past decay");
+test("points table: user-specified per-floor points (x10 units)", () => {
+  assert.equal(FLOOR_POINTS_X10.length, 71);
+  assert.equal(pointsForLevel(0), 100000); // 1段目 10,000点
+  assert.equal(pointsForLevel(1), 99000);
+  assert.equal(pointsForLevel(20), 80000);
+  assert.equal(pointsForLevel(21), 78000); // ここから -200ずつ
+  assert.equal(pointsForLevel(31), 57500); // ここから -250ずつ
+  assert.equal(pointsForLevel(39), 36000); // ここから -400ずつ
+  assert.equal(pointsForLevel(45), 10000);
+  assert.equal(pointsForLevel(55), 500); // 50点
+  assert.equal(pointsForLevel(56), 420); // 42点
+  assert.equal(pointsForLevel(57), 240); // 24点
+  assert.equal(pointsForLevel(63), 10); // 1点
+  assert.equal(pointsForLevel(64), 5); // 0.5点
+  assert.equal(pointsForLevel(65), 1); // 0.1点
+  assert.equal(pointsForLevel(68), 0);
+  assert.equal(pointsForLevel(200), 0); // 表より先は 0
+  // 全段の合計 = 318,141.8 点 (×10 = 3,181,418)
+  assert.equal(FLOOR_POINTS_X10.reduce((a, b) => a + b, 0), 3181418);
 });

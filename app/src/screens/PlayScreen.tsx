@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, Share, Text, View } from 'react-native';
 import { FIELD_WIDTH, blockLeftAt, simulate, type SimResult } from '../../../shared/sim.js';
-import { GAME_CONFIG, buildShareText, localDailySeed } from '../gameLogic';
+import { GAME_CONFIG, buildShareText, formatScore, localDailySeed } from '../gameLogic';
 import { playStart, playSubmit, type SubmitResponse } from '../api';
 import { CardLabel, GlassCard, PrimaryButton, styles } from '../ui';
 
@@ -174,7 +174,7 @@ export default function PlayScreen({
       <GlassCard>
         <CardLabel>けっか</CardLabel>
         <Text style={styles.bigNumber}>
-          {finalScore.toLocaleString()}
+          {formatScore(finalScore)}
           <Text style={styles.unit}> 点</Text>
         </Text>
         <Text style={styles.note}>
@@ -184,8 +184,8 @@ export default function PlayScreen({
         {serverResult ? (
           <Text style={styles.note}>
             {serverResult.isDailyBest
-              ? `今日のベスト更新！ ${serverResult.pointsEarned.toLocaleString()} pt が貯まりました。`
-              : `今日のベストは ${serverResult.dailyBest.toLocaleString()} 点です（ベスト更新のときだけポイントが増えます）。`}
+              ? `今日のベスト更新！ ${formatScore(serverResult.pointsEarned)} pt が貯まりました。`
+              : `今日のベストは ${formatScore(serverResult.dailyBest)} 点です（ベスト更新のときだけポイントが増えます）。`}
           </Text>
         ) : (
           <Text style={styles.note}>サーバー未接続のため、このスコアは仮表示です。</Text>
@@ -202,7 +202,7 @@ export default function PlayScreen({
     <GlassCard>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text style={{ color: '#14181f', fontSize: 20, fontWeight: '800' }}>
-          {(sim?.score ?? 0).toLocaleString()} 点
+          {formatScore(sim?.score ?? 0)} 点
         </Text>
         <Text style={{ color: '#5c6572', fontSize: 15, fontWeight: '700' }}>{stacked.length} 段</Text>
         {comboNow > 0 ? (

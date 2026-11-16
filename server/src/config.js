@@ -24,15 +24,18 @@ game: GAME_CONFIG,
 maxAttemptsPerDay: intFromEnv("P2E_MAX_ATTEMPTS_PER_DAY", 0),
 // プレイセッションの有効期限 (ms)
 sessionTtlMs: intFromEnv("P2E_SESSION_TTL_MS", 10 * 60 * 1000),
-// 1日にポイント化できる上限 (その日のベストスコア分まで)
-dailyEarnCapPoints: intFromEnv("P2E_DAILY_EARN_CAP", 10000),
+// 1日にポイント化できる上限 (その日のベストスコア分まで)。
+// 単位は 0.1 点 (スコアと同じ)。仮値: 全段PERFECTの理論最大
+// (約12.5M) を上回る 20,000,000 に置き、βでは実質無制限。
+// 上限の本決定は未決定 (DESIGN.md §12-3)。
+dailyEarnCapPoints: intFromEnv("P2E_DAILY_EARN_CAP", 20000000),
 // 獲得ポイントの保留期間 (ms)。Phase 1 の確認用に短め。
 // 本番の長さは未決定 (DESIGN.md §12-4)。
 holdMs: intFromEnv("P2E_HOLD_MS", 60 * 1000),
 
-// 払い出し (Phase 1 では無効。Phase 2 で有効化する)
-// pt→QOM レートはなので null。null の間は払い出し不可。
-ptToQomRate: null,
+// 払い出し (まだ無効。配布ウォレットの鍵が無い間は有効化されない)
+// pt→QOM レート【決定済み: 1pt = 1 QOM (ユーザー, 2026-11-17)】
+ptToQomRate: 1,
 ql1ChainId: 766,
 ql1RpcUrl: process.env.QL1_RPC_URL || "https://evm-rpc-ql1.mschihuahua.org",
 };

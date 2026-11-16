@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { fetchRanking, fetchStats, type PoolStats, type RankingView } from '../api';
-import { rankGapText } from '../gameLogic';
+import { formatScore, rankGapText } from '../gameLogic';
 import { CardLabel, GlassCard, styles } from '../ui';
 
 export default function RankingScreen({ localOnly, refreshKey }: { localOnly: boolean; refreshKey: number }) {
@@ -66,7 +66,7 @@ export default function RankingScreen({ localOnly, refreshKey }: { localOnly: bo
         <>
           {ranking.me ? (
             <Text style={styles.note}>
-              あなたは {ranking.me.rank}位（{ranking.me.score.toLocaleString()}点）
+              あなたは {ranking.me.rank}位（{formatScore(ranking.me.score)}点）
               {gap ? `。${gap}！` : ranking.me.rank === 1 ? '。トップです！' : ''}
             </Text>
           ) : (
@@ -79,7 +79,7 @@ export default function RankingScreen({ localOnly, refreshKey }: { localOnly: bo
               <View key={r.accountId} style={[styles.rankRow, ranking.me?.accountId === r.accountId ? styles.rankRowMe : null]}>
                 <Text style={styles.rankNum}>{r.rank}位</Text>
                 <Text style={styles.rankName}>{r.label}</Text>
-                <Text style={styles.rankScore}>{r.score.toLocaleString()}点</Text>
+                <Text style={styles.rankScore}>{formatScore(r.score)}点</Text>
               </View>
             ))
           )}
