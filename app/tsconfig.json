@@ -1,1 +1,12 @@
-{"compilerOptions":{"strict":true},"extends":"expo/tsconfig.base"}
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    // The shared simulation (../../shared/sim.js) is plain JS shared verbatim
+    // with the server. Its types live in src/sim.d.ts as ambient module
+    // declarations; allowJs must be off for tsc so those declarations are
+    // used instead of inferring from the JS source. (Metro still bundles
+    // the JS at runtime — this only affects typechecking.)
+    "allowJs": false
+  }
+}
