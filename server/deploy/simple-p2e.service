@@ -1,0 +1,38 @@
+# 簡素版P2E points/game server — systemd unit.
+# Install:  sudo cp deploy/simple-p2e.service /etc/systemd/system/
+#           sudo systemctl daemon-reload && sudo systemctl enable --now simple-p2e
+# Config:   /opt/simple-p2e/.env  (chmod 600, owned by p2e)
+# Logs:     journalctl -u simple-p2e -f   (access log = method/path/status only)
+#
+# This box is shared: M2E Walk runs as m2e-walk.service on 127.0.0.1:8787
+# and the CAW node as caw-node.service (system Node 22). This service is
+# fully separate: own user, own directory, own DB, port 8788, and the
+# Node 24 side-install at /opt/node-v24 (never the system Node).
+
+[Unit]
+Description=Simple P2E points/game server (Node + SQLite)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=p2e
+Group=p2e
+WorkingDirectory=/opt/simple-p2e/repo/server
+EnvironmentFile=/opt/simple-p2e/.env
+ExecStart=/opt/node-v24/bin/node src/main.js
+Restart=on-failure
+RestartSec=3
+
+# Hardening (the app only needs its own data/backup directories).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/simple-p2e/data /opt/simple-p2e/backups
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,6 @@
+# 簡素版P2E — daily on-box DB snapshot. Install ON the VPS:
+#   sudo cp deploy/simple-p2e-backup.cron /etc/cron.d/simple-p2e-backup
+# Snapshots land in /opt/simple-p2e/backups (kept 14 days by backup.mjs).
+# This is NOT sufficient on its own: also pull them off the box daily
+# (deploy/pull-backup.sh) — the VPS plan may expire and take the box with it.
+40 3 * * * p2e /opt/node-v24/bin/node /opt/simple-p2e/repo/server/deploy/backup.mjs >> /opt/simple-p2e/backups/backup.log 2>&1
