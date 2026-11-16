@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   FIELD_WIDTH, GAME_CONFIG, dailySeed, seedPhase, periodForLevel,
-  blockLeftAt, simulate,
+  blockLeftAt, pointsForLevel, simulate,
 } from "../sim.js";
 
 const SEED = dailySeed("2026-11-17");
@@ -141,4 +141,21 @@ test("empty tap list is a zero run", () => {
   assert.equal(r.score, 0);
   assert.equal(r.floorsStacked, 0);
   assert.equal(r.gameOver, false);
+});
+
+test("diminishing points: per-floor points halve every band and floor at the min", () => {
+  assert.equal(pointsForLevel(0), 100);
+  assert.equal(pointsForLevel(9), 100);
+  assert.equal(pointsForLevel(10), 50);
+  assert.equal(pointsForLevel(20), 25);
+  assert.equal(pointsForLevel(45), 10); // min clamp
+  // A long PERFECT run scores strictly less than the same run without decay.
+  const taps = perfectTaps(SEED, 30);
+  const withDecay = simulate(SEED, taps);
+  const noDecay = simulate(SEED, taps, { ...GAME_CONFIG, floorPointsDecayFactor: 1, floorPointsMin: 0 });
+  assert.ok(withDecay.score < noDecay.score, `${withDecay.score} < ${noDecay.score}`);
+  // Per-floor points in later bands are lower than in the first band.
+  const late = withDecay.floors[25].points;
+  const early = withDecay.floors[0].points;
+  assert.ok(late < early + 25 * 25, "combo growth must not explode past decay");
 });

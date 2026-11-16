@@ -35,7 +35,23 @@ pointsPerFloor: 100,
 // perfectBaseBonus + perfectComboStep * (n - 1)
 perfectBaseBonus: 50,
 perfectComboStep: 25,
+// 逓減 (ユーザー決定 2026-11-17「積み重ねるほど貰えるポイントを減らす」):
+// 1段の得点は floorPointsDecayEvery 段ごとに floorPointsDecayFactor 倍に
+// なり、floorPointsMin で止まる。超人的な長ラン (bot等) の旨みを潰し、
+// 上位のスコア差を圧縮する。帯と係数は仮値・未決定 (DESIGN.md §4.1)。
+floorPointsDecayEvery: 10,
+floorPointsDecayFactor: 0.5,
+floorPointsMin: 10,
 };
+
+// その段 (level) で得られる点数。(基本点 + PERFECTボーナス) に逓減を適用。
+export function pointsForLevel(level, config = GAME_CONFIG, bonus = 0) {
+const band = Math.floor(level / config.floorPointsDecayEvery);
+const scaled = Math.round(
+(config.pointsPerFloor + bonus) * Math.pow(config.floorPointsDecayFactor, band),
+);
+return Math.max(config.floorPointsMin, scaled);
+}
 
 // ---------- seed / PRNG ----------
 
@@ -146,7 +162,7 @@ combo += 1;
 maxCombo = Math.max(maxCombo, combo);
 perfects += 1;
 const bonus = config.perfectBaseBonus + config.perfectComboStep * (combo - 1);
-const points = config.pointsPerFloor + bonus;
+const points = pointsForLevel(level, config, bonus);
 score += points;
 floors.push({
 level, tapMs, blockLeft, widthBefore, offset,
@@ -172,7 +188,7 @@ break;
 }
 
 combo = 0;
-const points = config.pointsPerFloor;
+const points = pointsForLevel(level, config, 0);
 score += points;
 floors.push({
 level, tapMs, blockLeft, widthBefore, offset,
