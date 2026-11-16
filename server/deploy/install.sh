@@ -49,6 +49,7 @@ HOST=127.0.0.1
 DB_PATH=/opt/simple-p2e/data/simple-p2e.db
 ADMIN_SECRET=
 <redacted>
+EOF
   chmod 600 "$APP_HOME/.env"
   echo "    Created $APP_HOME/.env — ADMIN_SECRET is empty; fill it in, then start the service."
 fi
@@ -63,13 +64,13 @@ systemctl enable simple-p2e
 echo "==> On-box daily backup cron"
 cp "$APP_HOME/repo/server/deploy/simple-p2e-backup.cron" /etc/cron.d/simple-p2e-backup
 
-if grep -q '^ADMIN_SECRET=<redacted> "$APP_HOME/.env"; then
+if grep -q '^ADMIN_SECRET=$' "$APP_HOME/.env"; then
+  echo "    Service enabled but NOT started: fill in ADMIN_SECRET in $APP_HOME/.env first, then:"
+  echo "      sudo systemctl start simple-p2e"
+else
   systemctl restart simple-p2e
   echo "    Service started. Check: systemctl status simple-p2e"
   echo "    Health:  curl http://127.0.0.1:8788/health"
-else
-  echo "    Service enabled but NOT started: fill in ADMIN_SECRET in $APP_HOME/.env first, then:"
-  echo "      sudo systemctl start simple-p2e"
 fi
 
 echo "Done."
