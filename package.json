@@ -1,0 +1,1 @@
+{"description":"簡素版P2E (QOM報酬) — Phase 1: shared sim + server + app, local only.","name":"simple-p2e","private":true,"scripts":{"test":"npm run test:sim && npm run test:server && npm run test:app","test:app":"node --test app/test/*.test.mjs","test:server":"node --test server/test/*.test.js","test:sim":"node --test shared/test/*.test.js"},"type":"module","version":"0.1.0"}

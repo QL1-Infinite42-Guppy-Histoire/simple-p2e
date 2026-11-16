@@ -1,0 +1,1 @@
+{"description":"簡素版P2E (QOM報酬) — points/game server, Node + SQLite. Zero dependencies: Node 24 built-ins only (node:http, node:sqlite). Phase 1: local only, payout disabled.","engines":{"node":">=22.5"},"name":"simple-p2e-server","private":true,"scripts":{"start":"node src/main.js","test":"node --test test/*.test.js"},"type":"module","version":"0.1.0"}
