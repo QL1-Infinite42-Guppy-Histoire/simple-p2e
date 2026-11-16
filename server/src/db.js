@@ -83,8 +83,23 @@ export function openDatabase(dbPath, schemaSql = null) {
   raw.exec("PRAGMA foreign_keys = ON;");
   raw.exec("PRAGMA busy_timeout = 5000;");
   const db = new D1Shim(raw);
-  if (schemaSql) db.exec(schemaSql);
+  if (schemaSql) {
+    db.exec(schemaSql);
+    applyMigrations(raw);
+  }
   return db;
+}
+
+// Idempotent column additions for databases created before a column
+// existed (CREATE TABLE IF NOT EXISTS never alters an existing table).
+function applyMigrations(raw) {
+  const cols = (t) => raw.prepare(`PRAGMA table_info(${t})`).all().map((r) => r.name);
+  if (!cols("play_sessions").includes("multiplier")) {
+    raw.exec("ALTER TABLE play_sessions ADD COLUMN multiplier INTEGER NOT NULL DEFAULT 1");
+  }
+  if (!cols("play_results").includes("multiplier")) {
+    raw.exec("ALTER TABLE play_results ADD COLUMN multiplier INTEGER NOT NULL DEFAULT 1");
+  }
 }
 
 export function loadSchema(schemaPath) {

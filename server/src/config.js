@@ -39,6 +39,22 @@ ql1ChainId: 766,
 ql1RpcUrl: process.env.QL1_RPC_URL || "https://evm-rpc-ql1.mschihuahua.org",
 };
 
+// 追加プレイの倍率ティア【決定: ユーザー, 2026-11-17】(DESIGN.md §3.5)
+// 支払った ZAP で買う 1 プレイのスコア (ポイント・デイリーベスト・
+// 両ランキングすべて) が倍率ぶんになる。50 ZAP → 5倍がユーザーの例示、
+// 「2倍やって3倍やるでもよし」で中間ティアも可。価格 = 10 × 倍率。
+// バーン/プール配分は価格の 30% / 70% (10 ZAP = 3バーン+7プール の一般化)。
+// 支払い検証は未実装 (42チェーンの受取ウォレット待ち) のため、
+// 現状は有料セッションを作成できない (無料は常に ×1)。
+export const PAID_TIERS = [
+{zap: 10, multiplier: 1},
+{zap: 20, multiplier: 2},
+{zap: 30, multiplier: 3},
+{zap: 40, multiplier: 4},
+{zap: 50, multiplier: 5},
+];
+export const BURN_SHARE = 0.3;
+
 function intFromEnv(name, fallback) {
 const v = Number(process.env[name]);
 return Number.isInteger(v) && v >= 0? v: fallback;

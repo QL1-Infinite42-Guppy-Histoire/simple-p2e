@@ -308,6 +308,32 @@ test("history lists earn entries newest first", async () => {
   assert.ok(h.json.history[0].pointsDelta > 0);
 });
 
+test("paid multiplier: session multiplier scales the verified score", async () => {
+  const env = makeEnv();
+  const acct = await register(env);
+  const start = await call(env, "POST", "/play/start", { token: acct.deviceToken });
+  assert.equal(start.status, 201);
+  // Simulate a future paid session (payment verification is not enabled
+  // yet, so the test sets the multiplier the payment flow will set).
+  await env.DB.prepare("UPDATE play_sessions SET multiplier = 5 WHERE id = ?")
+    .bind(start.json.sessionId).run();
+  const taps = craftTaps(start.json.seed, 2);
+  const submit = await call(env, "POST", "/play/submit", {
+    token: acct.deviceToken,
+    body: { sessionId: start.json.sessionId, tapTimesMs: taps },
+  });
+  assert.equal(submit.status, 200, JSON.stringify(submit.json));
+  const raw = simulate(start.json.seed, taps, GAME_CONFIG).score;
+  assert.equal(submit.json.rawScore, raw);
+  assert.equal(submit.json.multiplier, 5);
+  assert.equal(submit.json.verifiedScore, raw * 5);
+  assert.equal(submit.json.pointsEarned, raw * 5);
+  // /me exposes the tier menu and the (disabled) paid-play flag.
+  const me = await call(env, "GET", "/me", { token: acct.deviceToken });
+  assert.equal(me.json.config.paidPlaysEnabled, false);
+  assert.deepEqual(me.json.config.paidTiers.map((t) => t.multiplier), [1, 2, 3, 4, 5]);
+});
+
 test("stats: pool and burn totals derive only from pool_events", async () => {
   const env = makeEnv();
   // No events yet: both are honestly zero, and /stats is public.

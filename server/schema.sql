@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS play_sessions (
   nonce      TEXT NOT NULL,
   expires_at INTEGER NOT NULL,
   used_at    INTEGER,
+  multiplier INTEGER NOT NULL DEFAULT 1,          -- paid-play points multiplier (DESIGN.md §3.5); 1 = normal
   created_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_account_day ON play_sessions(account_id, date_jst);
@@ -52,7 +53,8 @@ CREATE TABLE IF NOT EXISTS play_results (
   session_id TEXT NOT NULL UNIQUE REFERENCES play_sessions(id),
   account_id TEXT NOT NULL REFERENCES accounts(id),
   date_jst   TEXT NOT NULL,
-  score      INTEGER NOT NULL,
+  score      INTEGER NOT NULL,                    -- final score (multiplier applied)
+  multiplier INTEGER NOT NULL DEFAULT 1,          -- multiplier that produced `score`
   floors     INTEGER NOT NULL,
   perfects   INTEGER NOT NULL,
   taps_json  TEXT NOT NULL,                       -- the submitted tap-times array

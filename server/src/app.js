@@ -17,7 +17,7 @@
 // Device auth: header `X-Device-Token: <accountId>.<secret>`.
 // Only the sha256 hash of the secret is stored.
 
-import { resolveConfig } from "./config.js";
+import { resolveConfig, PAID_TIERS } from "./config.js";
 import { computeBalances, sumEarnForRef } from "./lib/ledger.js";
 import { jstDateString, seasonDates, seasonStart } from "./lib/dates.js";
 import { dailySeed, simulate } from "../../shared/sim.js";
@@ -232,11 +232,18 @@ async function handlePlaySubmit(request, env, cfg, account) {
   } catch {
     return err(400, "bad_tap_times");
   }
+  // Paid-play multiplier (DESIGN.md §3.5): the session carries it, the
+  // replay produces the raw score, and the recorded score is raw × mult.
+  // Free sessions are always ×1; paid sessions exist only after payment
+  // verification (not yet enabled — no receiving wallet configured).
+  const multiplier = Number.isInteger(session.multiplier) && session.multiplier >= 1 ? session.multiplier : 1;
+  const rawScore = result.score;
+  result = { ...result, score: rawScore * multiplier };
 
   await env.DB.prepare("UPDATE play_sessions SET used_at = ? WHERE id = ?").bind(now(), session.id).run();
   await env.DB.prepare(
-    "INSERT INTO play_results (session_id, account_id, date_jst, score, floors, perfects, taps_json, created_at) VALUES (?,?,?,?,?,?,?,?)",
-  ).bind(session.id, account.id, session.date_jst, result.score, result.floorsStacked, result.perfects, JSON.stringify(body.tapTimesMs), now()).run();
+    "INSERT INTO play_results (session_id, account_id, date_jst, score, multiplier, floors, perfects, taps_json, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+  ).bind(session.id, account.id, session.date_jst, result.score, multiplier, result.floorsStacked, result.perfects, JSON.stringify(body.tapTimesMs), now()).run();
 
   // その日のベスト更新分だけを差分で台帳に入れる (日の合計獲得 = ベスト)。
   const dateJst = session.date_jst;
@@ -262,6 +269,8 @@ async function handlePlaySubmit(request, env, cfg, account) {
   const ranking = rankingView(await dailyRanking(env, dateJst), account.id);
   return json({
     verifiedScore: result.score,
+    rawScore,
+    multiplier,
     floors: result.floorsStacked,
     perfects: result.perfects,
     maxCombo: result.maxCombo,
@@ -303,6 +312,8 @@ async function handleMe(env, cfg, account) {
       maxAttemptsPerDay: cfg.maxAttemptsPerDay,
       holdMs: cfg.holdMs,
       ratesFinal: false, // 数値はすべて仮値・未決定 (DESIGN.md §4)
+      paidTiers: PAID_TIERS, // 追加プレイの倍率ティア (DESIGN.md §3.5)
+      paidPlaysEnabled: false, // 受取ウォレット待ちのため未有効化
     },
   });
 }
