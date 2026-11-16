@@ -38,6 +38,7 @@ export interface MeResponse {
   accountId: string;
   label: string;
   balances: Balances;
+  attemptsLeftToday?: number | null; // null = 無制限
   todayBest: number;
   todayEarned: number;
   ranking: RankingView;

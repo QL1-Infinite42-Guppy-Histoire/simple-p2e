@@ -181,25 +181,48 @@ test("ranking: daily order, caller's rank and the rival above", async () => {
   assert.equal(daily.json.totalPlayers, 2);
 });
 
-test("ranking: season is the sum of daily bests within the half-month season", async () => {
+test("ranking: season is the sum of ALL plays within the half-month season", async () => {
   const env = makeEnv();
   const a = await register(env);
   const b = await register(env);
   const dates = seasonDates(jstDateString());
-  const insert = async (accountId, date, score) => {
+  const insert = async (accountId, date, score, n) => {
+    const sid = `s-${accountId}-${date}-${n}`;
     await env.DB.prepare(
-      "INSERT INTO daily_bests (account_id, date_jst, best_score, updated_at) VALUES (?,?,?,?)",
-    ).bind(accountId, date, score, Date.now()).run();
+      "INSERT INTO play_sessions (id, account_id, date_jst, seed, nonce, expires_at, created_at) VALUES (?,?,?,?,?,?,?)",
+    ).bind(sid, accountId, date, 1, "n", Date.now(), Date.now()).run();
+    await env.DB.prepare(
+      "INSERT INTO play_results (session_id, account_id, date_jst, score, floors, perfects, taps_json, created_at) VALUES (?,?,?,?,?,?,?,?)",
+    ).bind(sid, accountId, date, score, 1, 0, "[]", Date.now()).run();
   };
-  await insert(a.accountId, dates[0], 700);
-  await insert(a.accountId, dates[1], 300);
-  await insert(b.accountId, dates[0], 500);
+  // a: two plays on day 1 (300 + 200) and one on day 2 (500) = 1,000 total.
+  // Every play counts — not just the daily best (which would be 800).
+  await insert(a.accountId, dates[0], 300, 1);
+  await insert(a.accountId, dates[0], 200, 2);
+  await insert(a.accountId, dates[1], 500, 3);
+  // b: a single 700 play — better than any single a play, lower total.
+  await insert(b.accountId, dates[0], 700, 1);
   const season = await call(env, "GET", "/ranking/season", { token: b.deviceToken });
   assert.equal(season.json.top[0].accountId, a.accountId);
-  assert.equal(season.json.top[0].score, 1000); // 700 + 300
+  assert.equal(season.json.top[0].score, 1000);
   assert.equal(season.json.me.rank, 2);
-  assert.equal(season.json.me.score, 500);
+  assert.equal(season.json.me.score, 700);
   assert.ok(season.json.seasonStartJst.endsWith("-01") || season.json.seasonStartJst.endsWith("-16"));
+});
+
+test("free plays are limited per day when configured (production: 3/day)", async () => {
+  const env = makeEnv({ config: { maxAttemptsPerDay: 3 } });
+  const acct = await register(env);
+  for (let i = 0; i < 3; i++) {
+    const s = await call(env, "POST", "/play/start", { token: acct.deviceToken });
+    assert.equal(s.status, 201);
+    assert.equal(s.json.attemptsLeft, 2 - i);
+  }
+  const fourth = await call(env, "POST", "/play/start", { token: acct.deviceToken });
+  assert.equal(fourth.status, 429);
+  assert.equal(fourth.json.error, "daily_attempt_limit");
+  const me = await call(env, "GET", "/me", { token: acct.deviceToken });
+  assert.equal(me.json.attemptsLeftToday, 0);
 });
 
 test("address: bad formats rejected, good address stored", async () => {

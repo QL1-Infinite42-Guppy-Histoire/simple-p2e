@@ -127,13 +127,16 @@ async function dailyRanking(env, dateJst) {
   return results.map((r, i) => ({ rank: i + 1, accountId: r.accountId, label: playerLabel(r.accountId), score: r.score }));
 }
 
-// Season ranking: sum of daily bests over the half-month season of
-// dateJst (1st..15th / 16th..month-end; DESIGN.md §3.4).
+// Season ranking: sum of ALL verified play scores over the half-month
+// season of dateJst (1st..15th / 16th..month-end) — every play counts,
+// not just daily bests (user decision 2026-11-17; DESIGN.md §3.4).
+// Points earning still follows the daily best; only this ranking is a
+// cumulative total.
 async function seasonRanking(env, dateJst) {
   const dates = seasonDates(dateJst);
   const placeholders = dates.map(() => "?").join(",");
   const { results } = await env.DB.prepare(
-    `SELECT account_id AS accountId, SUM(best_score) AS score FROM daily_bests WHERE date_jst IN (${placeholders}) AND best_score > 0 GROUP BY account_id ORDER BY score DESC, account_id ASC`,
+    `SELECT account_id AS accountId, SUM(score) AS score FROM play_results WHERE date_jst IN (${placeholders}) AND score > 0 GROUP BY account_id ORDER BY score DESC, account_id ASC`,
   ).bind(...dates).all();
   return results.map((r, i) => ({ rank: i + 1, accountId: r.accountId, label: playerLabel(r.accountId), score: r.score }));
 }
@@ -280,10 +283,15 @@ async function handleMe(env, cfg, account) {
   ).bind(account.id, dateJst).first();
   const ranking = rankingView(await dailyRanking(env, dateJst), account.id);
   const payout = payoutStatus(env, cfg);
+  const { results: usedRows } = await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM play_sessions WHERE account_id = ? AND date_jst = ?",
+  ).bind(account.id, dateJst).all();
+  const attemptsUsed = usedRows[0]?.n || 0;
   return json({
     accountId: account.id,
     label: playerLabel(account.id),
     balances,
+    attemptsLeftToday: cfg.maxAttemptsPerDay > 0 ? Math.max(0, cfg.maxAttemptsPerDay - attemptsUsed) : null,
     todayBest: bestRow?.best || 0,
     todayEarned: sumEarnForRef(entries, `dailybest:${dateJst}`),
     ranking,
