@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 
 import app from "../src/app.js";
 import { openDatabase } from "../src/db.js";
-import { jstDateString, weekDates } from "../src/lib/dates.js";
+import { jstDateString, seasonDates, seasonStart } from "../src/lib/dates.js";
 import {
   FIELD_WIDTH, GAME_CONFIG, blockLeftAt, periodForLevel, simulate,
 } from "../../shared/sim.js";
@@ -130,7 +130,7 @@ test("fake claimed score is ignored — the replay decides", async () => {
 test("daily best: only the difference earns, capped by the daily cap", async () => {
   // ボーナス係数を 0 にした設定では スコア = 段数 × 100 で予測できる
   const noBonus = { perfectBaseBonus: 0, perfectComboStep: 0 };
-  const env = makeEnv({ config: { dailyEarnCapPoints: 450, holdMs: 0 }, game: noBonus });
+  const env = makeEnv({ config: { dailyEarnCapPoints: 450, holdMs: 0, maxAttemptsPerDay: 10 }, game: noBonus });
   const cfg = { ...GAME_CONFIG, ...noBonus };
   const acct = await register(env);
 
@@ -183,11 +183,11 @@ test("ranking: daily order, caller's rank and the rival above", async () => {
   assert.equal(daily.json.totalPlayers, 2);
 });
 
-test("ranking: weekly is the sum of daily bests", async () => {
+test("ranking: season is the sum of daily bests within the half-month season", async () => {
   const env = makeEnv();
   const a = await register(env);
   const b = await register(env);
-  const dates = weekDates(jstDateString());
+  const dates = seasonDates(jstDateString());
   const insert = async (accountId, date, score) => {
     await env.DB.prepare(
       "INSERT INTO daily_bests (account_id, date_jst, best_score, updated_at) VALUES (?,?,?,?)",
@@ -196,11 +196,12 @@ test("ranking: weekly is the sum of daily bests", async () => {
   await insert(a.accountId, dates[0], 700);
   await insert(a.accountId, dates[1], 300);
   await insert(b.accountId, dates[0], 500);
-  const weekly = await call(env, "GET", "/ranking/weekly", { token: b.deviceToken });
-  assert.equal(weekly.json.top[0].accountId, a.accountId);
-  assert.equal(weekly.json.top[0].score, 1000); // 700 + 300
-  assert.equal(weekly.json.me.rank, 2);
-  assert.equal(weekly.json.me.score, 500);
+  const season = await call(env, "GET", "/ranking/season", { token: b.deviceToken });
+  assert.equal(season.json.top[0].accountId, a.accountId);
+  assert.equal(season.json.top[0].score, 1000); // 700 + 300
+  assert.equal(season.json.me.rank, 2);
+  assert.equal(season.json.me.score, 500);
+  assert.ok(season.json.seasonStartJst.endsWith("-01") || season.json.seasonStartJst.endsWith("-16"));
 });
 
 test("address: bad formats rejected, good address stored", async () => {
@@ -284,4 +285,36 @@ test("history lists earn entries newest first", async () => {
   assert.equal(h.json.history.length, 1);
   assert.equal(h.json.history[0].type, "earn");
   assert.ok(h.json.history[0].pointsDelta > 0);
+});
+
+test("stats: pool and burn totals derive only from pool_events", async () => {
+  const env = makeEnv();
+  // No events yet: both are honestly zero, and /stats is public.
+  const empty = await call(env, "GET", "/stats");
+  assert.equal(empty.status, 200);
+  assert.equal(empty.json.seasonRewardPoolZap, "0");
+  assert.equal(empty.json.totalBurnedZap, "0");
+  assert.equal(empty.json.zapDecimals, 18);
+
+  const nowMs = Date.now();
+  const zap = (n) => (BigInt(n) * 10n ** 18n).toString();
+  const ins = (kind, amountRaw, createdAt) =>
+    env.DB.prepare("INSERT INTO pool_events (kind, amount_raw, ref, created_at) VALUES (?,?,?,?)")
+      .bind(kind, amountRaw, "test", createdAt).run();
+  await ins("pool_in", zap(7), nowMs);
+  await ins("pool_in", zap(7), nowMs);
+  await ins("burn", zap(3), nowMs);
+  await ins("burn", zap(3), nowMs);
+  // Last season's pool_in must NOT count into this season's pool.
+  const prevSeasonMs = Date.parse(`${seasonStart(jstDateString())}T00:00:00+09:00`) - 1000;
+  await ins("pool_in", zap(70), prevSeasonMs);
+
+  const s = await call(env, "GET", "/stats");
+  assert.equal(s.json.seasonRewardPoolZap, "14");
+  assert.equal(s.json.totalBurnedZap, "6");
+  // Burn total is all-time, so it stays 6 even for last season's burn.
+  await ins("burn", zap(4), prevSeasonMs);
+  const s2 = await call(env, "GET", "/stats");
+  assert.equal(s2.json.totalBurnedZap, "10");
+  assert.equal(s2.json.seasonRewardPoolZap, "14");
 });

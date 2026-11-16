@@ -14,8 +14,14 @@ export const CONFIG = {
 // ゲームのシミュレーション設定 (共有モジュール側が正。仮値・未決定)
 game: GAME_CONFIG,
 
-// 1日のプレイ試行回数の上限
-maxAttemptsPerDay: intFromEnv("P2E_MAX_ATTEMPTS_PER_DAY", 5),
+// 1日の無料プレイ回数の上限。【本番は3回に決定済み (ユーザー, 2026-11-17)】
+// ただしβ期間中は無制限で遊べるようにする (ユーザー, 2026-11-17) ため、
+// 既定値は 0 = 無制限。3回制限は env P2E_MAX_ATTEMPTS_PER_DAY=3 で
+// 後から有効化する (アプリの作り直しは不要)。
+// 制限を超える追加プレイは 10 ZAP (42チェーン) の支払いで買う形式
+// (3 ZAPバーン + 7 ZAPはシーズンの報酬プール)。追加プレイの実装は
+// 受取ウォレット決定後 (DESIGN.md §3.5)。
+maxAttemptsPerDay: intFromEnv("P2E_MAX_ATTEMPTS_PER_DAY", 0),
 // プレイセッションの有効期限 (ms)
 sessionTtlMs: intFromEnv("P2E_SESSION_TTL_MS", 10 * 60 * 1000),
 // 1日にポイント化できる上限 (その日のベストスコア分まで)

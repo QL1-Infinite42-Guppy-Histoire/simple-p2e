@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { fetchRanking, type RankingView } from '../api';
+import { fetchRanking, fetchStats, type PoolStats, type RankingView } from '../api';
 import { rankGapText } from '../gameLogic';
 import { CardLabel, GlassCard, styles } from '../ui';
 
 export default function RankingScreen({ localOnly, refreshKey }: { localOnly: boolean; refreshKey: number }) {
-  const [kind, setKind] = useState<'daily' | 'weekly'>('daily');
+  const [kind, setKind] = useState<'daily' | 'season'>('daily');
   const [ranking, setRanking] = useState<RankingView | null>(null);
+  const [stats, setStats] = useState<PoolStats | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -17,6 +18,11 @@ export default function RankingScreen({ localOnly, refreshKey }: { localOnly: bo
     } catch (e) {
       setError(`ランキングを読めませんでした: ${String((e as Error)?.message || e)}`);
     }
+    try {
+      setStats(await fetchStats());
+    } catch {
+      setStats(null);
+    }
   }, [kind, localOnly]);
 
   useEffect(() => {
@@ -26,16 +32,27 @@ export default function RankingScreen({ localOnly, refreshKey }: { localOnly: bo
   const gap = ranking ? rankGapText(ranking.me?.rank ?? null, ranking.pointsToNextRank) : null;
 
   return (
+    <>
+      {!localOnly && stats ? (
+        <GlassCard>
+          <CardLabel>報酬プールとバーン（ZAP）</CardLabel>
+          <Text style={styles.note}>今シーズンの報酬プール: {stats.seasonRewardPoolZap} ZAP</Text>
+          <Text style={styles.note}>総バーン数: {stats.totalBurnedZap} ZAP</Text>
+          <Text style={styles.note}>
+            追加プレイ（10 ZAP）のうち7 ZAPがプールに、3 ZAPがバーンに回ります。数字はサーバーの実績集計です。
+          </Text>
+        </GlassCard>
+      ) : null}
     <GlassCard>
       <CardLabel>ランキング</CardLabel>
       <View style={styles.tabRow}>
-        {(['daily', 'weekly'] as const).map((k) => (
+        {(['daily', 'season'] as const).map((k) => (
           <TouchableOpacity
             key={k}
             style={[styles.tabBtn, kind === k ? styles.tabBtnActive : null]}
             onPress={() => setKind(k)}
           >
-            <Text style={styles.tabText}>{k === 'daily' ? '今日' : '今週'}</Text>
+            <Text style={styles.tabText}>{k === 'daily' ? '今日' : 'シーズン'}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -53,7 +70,7 @@ export default function RankingScreen({ localOnly, refreshKey }: { localOnly: bo
               {gap ? `。${gap}！` : ranking.me.rank === 1 ? '。トップです！' : ''}
             </Text>
           ) : (
-            <Text style={styles.note}>まだ{kind === 'daily' ? '今日' : '今週'}のスコアがありません。遊ぶと順位がつきます。</Text>
+            <Text style={styles.note}>まだ{kind === 'daily' ? '今日' : '今シーズン'}のスコアがありません。遊ぶと順位がつきます。</Text>
           )}
           {ranking.top.length === 0 ? (
             <Text style={styles.note}>まだ誰も遊んでいません。一番乗りできます。</Text>
@@ -69,10 +86,11 @@ export default function RankingScreen({ localOnly, refreshKey }: { localOnly: bo
           <Text style={styles.note}>
             {kind === 'daily'
               ? '今日のランキングは全員同じ条件（同じシード）です。差は腕の差だけ。'
-              : '今週のランキングは、その週の毎日のベストの合計です。毎日遊ぶ人が強くなります。'}
+              : 'シーズンは半月ごと（1日〜15日／16日〜月末）です。シーズンランキングは、その期間の毎日のベストの合計です。毎日遊ぶ人が強くなります。'}
           </Text>
         </>
       )}
     </GlassCard>
+    </>
   );
 }

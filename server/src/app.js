@@ -19,7 +19,7 @@
 
 import { resolveConfig } from "./config.js";
 import { computeBalances, sumEarnForRef } from "./lib/ledger.js";
-import { jstDateString, weekDates } from "./lib/dates.js";
+import { jstDateString, seasonDates, seasonStart } from "./lib/dates.js";
 import { dailySeed, simulate } from "../../shared/sim.js";
 import { payoutStatus } from "./payout.js";
 
@@ -37,6 +37,51 @@ const randomToken = (bytes = 24) =>
 
 // 表示名は未決定 (DESIGN.md §12-12)。当面はアカウントID由来の仮表示。
 export const playerLabel = (accountId) => `プレイヤー${accountId.slice(0, 6)}`;
+
+// --- ZAP reward pool / burn stats (DESIGN.md §3.5) -------------------------
+// ZAP is the 42 Chain token 0x89195ca5c954b6f99b78f4a2aa5435a75dc5b256,
+// 18 decimals (verified on-chain). pool_events is append-only; the public
+// display derives ONLY from those rows, so both numbers are 0 until paid
+// extra plays actually land.
+const ZAP_DECIMALS = 18;
+
+function rawToDecimal(raw) {
+  const neg = raw < 0n;
+  const s = (neg ? -raw : raw).toString().padStart(ZAP_DECIMALS + 1, "0");
+  const int = s.slice(0, s.length - ZAP_DECIMALS);
+  const frac = s.slice(s.length - ZAP_DECIMALS).replace(/0+$/, "");
+  return `${neg ? "-" : ""}${int}${frac ? `.${frac}` : ""}`;
+}
+
+export async function poolStats(env) {
+  const seasonFrom = seasonStart(jstDateString());
+  const seasonStartMs = Date.parse(`${seasonFrom}T00:00:00+09:00`);
+  const { results } = await env.DB.prepare(
+    "SELECT kind, amount_raw AS amountRaw, created_at AS createdAt FROM pool_events",
+  ).all();
+  let seasonPool = 0n;
+  let totalBurned = 0n;
+  for (const row of results || []) {
+    let amount;
+    try {
+      amount = BigInt(row.amountRaw);
+    } catch {
+      continue;
+    }
+    if (row.kind === "burn") totalBurned += amount;
+    if (row.createdAt >= seasonStartMs) {
+      if (row.kind === "pool_in") seasonPool += amount;
+      if (row.kind === "pool_out") seasonPool -= amount;
+    }
+  }
+  if (seasonPool < 0n) seasonPool = 0n;
+  return {
+    zapDecimals: ZAP_DECIMALS,
+    seasonStartJst: seasonFrom,
+    seasonRewardPoolZap: rawToDecimal(seasonPool),
+    totalBurnedZap: rawToDecimal(totalBurned),
+  };
+}
 
 async function getAccount(env, accountId) {
   return env.DB.prepare("SELECT * FROM accounts WHERE id = ?").bind(accountId).first();
@@ -82,9 +127,10 @@ async function dailyRanking(env, dateJst) {
   return results.map((r, i) => ({ rank: i + 1, accountId: r.accountId, label: playerLabel(r.accountId), score: r.score }));
 }
 
-// Weekly ranking: sum of daily bests over the Mon..Sun week of dateJst.
-async function weeklyRanking(env, dateJst) {
-  const dates = weekDates(dateJst);
+// Season ranking: sum of daily bests over the half-month season of
+// dateJst (1st..15th / 16th..month-end; DESIGN.md §3.4).
+async function seasonRanking(env, dateJst) {
+  const dates = seasonDates(dateJst);
   const placeholders = dates.map(() => "?").join(",");
   const { results } = await env.DB.prepare(
     `SELECT account_id AS accountId, SUM(best_score) AS score FROM daily_bests WHERE date_jst IN (${placeholders}) AND best_score > 0 GROUP BY account_id ORDER BY score DESC, account_id ASC`,
@@ -147,7 +193,8 @@ async function handlePlayStart(env, cfg, account) {
     "SELECT COUNT(*) AS n FROM play_sessions WHERE account_id = ? AND date_jst = ?",
   ).bind(account.id, dateJst).all();
   const used = results[0]?.n || 0;
-  if (used >= cfg.maxAttemptsPerDay) return err(429, "daily_attempt_limit");
+  // maxAttemptsPerDay <= 0 means unlimited (β期間中。DESIGN.md §3.5).
+  if (cfg.maxAttemptsPerDay > 0 && used >= cfg.maxAttemptsPerDay) return err(429, "daily_attempt_limit");
   const sessionId = crypto.randomUUID();
   const seed = dailySeed(dateJst);
   const expiresAt = now() + cfg.sessionTtlMs;
@@ -159,7 +206,7 @@ async function handlePlayStart(env, cfg, account) {
     seed,
     dateJst,
     expiresAt,
-    attemptsLeft: cfg.maxAttemptsPerDay - used - 1,
+    attemptsLeft: cfg.maxAttemptsPerDay > 0 ? cfg.maxAttemptsPerDay - used - 1 : null,
     gameConfig: cfg.game,
   }, 201);
 }
@@ -303,6 +350,7 @@ export default {
         const payout = payoutStatus(env, cfg);
         return json({ ok: true, service: "simple-p2e", payoutEnabled: payout.enabled });
       }
+      if (path === "/stats" && request.method === "GET") return json(await poolStats(env));
       if (path === "/register" && request.method === "POST") return handleRegister(request, env);
       if (path === "/recover" && request.method === "POST") return handleRecover(request, env);
 
@@ -325,9 +373,9 @@ export default {
       if (path === "/ranking/daily" && request.method === "GET") {
         return json({ dateJst: jstDateString(), ...rankingView(await dailyRanking(env, jstDateString()), account.id) });
       }
-      if (path === "/ranking/weekly" && request.method === "GET") {
+      if (path === "/ranking/season" && request.method === "GET") {
         const dateJst = jstDateString();
-        return json({ weekOf: dateJst, ...rankingView(await weeklyRanking(env, dateJst), account.id) });
+        return json({ seasonStartJst: seasonStart(dateJst), ...rankingView(await seasonRanking(env, dateJst), account.id) });
       }
       return err(404, "not_found");
     } catch (e) {

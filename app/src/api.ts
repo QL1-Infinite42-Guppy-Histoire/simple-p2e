@@ -123,7 +123,7 @@ export async function playStart(): Promise<{
   seed: number;
   dateJst: string;
   expiresAt: number;
-  attemptsLeft: number;
+  attemptsLeft: number | null; // null = 無制限 (β期間中)
 }> {
   const res = await authedFetch('/play/start', { method: 'POST' });
   if (!res.ok) {
@@ -143,7 +143,21 @@ export async function playSubmit(sessionId: string, tapTimesMs: number[]): Promi
   return res.json();
 }
 
-export async function fetchRanking(kind: 'daily' | 'weekly'): Promise<RankingView & { dateJst?: string }> {
+export interface PoolStats {
+  zapDecimals: number;
+  seasonStartJst: string;
+  seasonRewardPoolZap: string;
+  totalBurnedZap: string;
+}
+
+// 報酬プールとバーン総数の公開表示 (サーバーの実績集計のみ。捏造なし)
+export async function fetchStats(): Promise<PoolStats> {
+  const res = await fetch(`${API_BASE_URL}/stats`);
+  if (!res.ok) throw new Error(`stats failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchRanking(kind: 'daily' | 'season'): Promise<RankingView & { dateJst?: string; seasonStartJst?: string }> {
   const res = await authedFetch(`/ranking/${kind}`);
   if (!res.ok) throw new Error(`ranking failed: ${res.status}`);
   return res.json();

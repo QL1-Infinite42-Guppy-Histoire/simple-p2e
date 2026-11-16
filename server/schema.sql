@@ -77,3 +77,17 @@ CREATE TABLE IF NOT EXISTS admin_audit (
   detail     TEXT,
   created_at INTEGER NOT NULL
 );
+
+-- ZAP (42 Chain) reward-pool / burn accounting (DESIGN.md §3.5).
+-- Append-only. Paid extra plays add one 'pool_in' (+7 ZAP) and one 'burn'
+-- (+3 ZAP) row per 10 ZAP payment; weekly rank-bonus payouts add
+-- 'pool_out' rows. Amounts are ZAP smallest units (18 decimals) as
+-- integer strings. The public /stats display derives from these rows —
+-- nothing is hard-coded.
+CREATE TABLE IF NOT EXISTS pool_events (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind       TEXT NOT NULL,
+  amount_raw TEXT NOT NULL,
+  ref        TEXT,
+  created_at INTEGER NOT NULL
+);
