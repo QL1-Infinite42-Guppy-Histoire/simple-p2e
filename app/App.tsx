@@ -132,8 +132,12 @@ export default function App() {
                     ? 'いまはサーバー未接続です。ポイントはサーバーにつながってから貯まります。'
                     : '貯まったポイントは、しばらく保留されてから確定します。確定ポイントがQOMへの交換対象です（交換はまだ始まっていません）。'}
                 </Text>
-                {!localOnly && me?.attemptsLeftToday != null ? (
-                  <Text style={styles.note}>今日の無料プレイは あと {me.attemptsLeftToday} 回です（追加プレイは10 ZAP・準備中）。</Text>
+                {!localOnly && me ? (
+                  me.attemptsLeftToday != null ? (
+                    <Text style={styles.note}>今日の無料プレイは あと {me.attemptsLeftToday} 回です（追加プレイは10 ZAP・準備中）。</Text>
+                  ) : (
+                    <Text style={styles.note}>いまは回数無制限で遊べます（QOM報酬の準備中です）。</Text>
+                  )
                 ) : null}
                 {loadError ? <Text style={styles.errorText}>{loadError}</Text> : null}
               </GlassCard>
