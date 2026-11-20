@@ -35,6 +35,9 @@ holdMs: intFromEnv("P2E_HOLD_MS", 60 * 1000),
 // 払い出し (まだ無効。配布ウォレットの鍵が無い間は有効化されない)
 // pt→QOM レート【決定済み: 1pt = 1 QOM (ユーザー, 2026-11-17)】
 ptToQomRate: 1,
+// アプリ内告知文 (空 = 告知なし)。シーズン単位のお知らせをアプリ再配布
+// なしで差し替えるための口。本番値は環境変数で入れる。
+seasonNotice: process.env.P2E_SEASON_NOTICE || "",
 ql1ChainId: 766,
 ql1RpcUrl: process.env.QL1_RPC_URL || "https://evm-rpc-ql1.mschihuahua.org",
 };

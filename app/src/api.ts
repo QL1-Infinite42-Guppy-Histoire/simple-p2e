@@ -45,6 +45,7 @@ export interface MeResponse {
   payoutAddress: string | null;
   payoutEnabled: boolean;
   payoutReason: string;
+  seasonNotice?: string | null; // サーバーからの告知 (試行シーズン等)
 }
 
 export interface SubmitResponse {

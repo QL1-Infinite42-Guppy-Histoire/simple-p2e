@@ -334,6 +334,17 @@ test("paid multiplier: session multiplier scales the verified score", async () =
   assert.deepEqual(me.json.config.paidTiers.map((t) => t.multiplier), [1, 2, 3, 4, 5]);
 });
 
+test("season notice: /me carries the configured notice (or null)", async () => {
+  const plain = makeEnv();
+  const a1 = await register(plain);
+  const me1 = await call(plain, "GET", "/me", { token: a1.deviceToken });
+  assert.equal(me1.json.seasonNotice, null);
+  const noticed = makeEnv({ config: { seasonNotice: "今シーズンは試行シーズンです" } });
+  const a2 = await register(noticed);
+  const me2 = await call(noticed, "GET", "/me", { token: a2.deviceToken });
+  assert.equal(me2.json.seasonNotice, "今シーズンは試行シーズンです");
+});
+
 test("stats: pool and burn totals derive only from pool_events", async () => {
   const env = makeEnv();
   // No events yet: both are honestly zero, and /stats is public.

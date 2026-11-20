@@ -85,6 +85,7 @@ export const styles = StyleSheet.create({
   bigNumber: { color: '#14181f', fontSize: 44, fontWeight: '800' },
   unit: { fontSize: 18, fontWeight: '600', color: '#5c6572' },
   note: { color: '#374151', fontSize: 14, lineHeight: 21, marginTop: 6 },
+  seasonNotice: { color: '#92400e', backgroundColor: '#fef3c7', fontSize: 14, lineHeight: 21, marginTop: 8, marginBottom: 4, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 10, overflow: 'hidden' },
   message: { color: '#1d4ed8', fontSize: 14, marginTop: 10, lineHeight: 20 },
   errorText: { color: '#b91c1c', fontSize: 14, marginTop: 10, lineHeight: 20 },
   primaryBtn: { backgroundColor: '#2563eb', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, marginTop: 14, alignItems: 'center', minHeight: 48, justifyContent: 'center' },

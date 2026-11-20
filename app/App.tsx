@@ -117,6 +117,9 @@ export default function App() {
             <>
               <GlassCard>
                 <CardLabel>ポイント</CardLabel>
+                {!localOnly && me?.seasonNotice ? (
+                  <Text style={styles.seasonNotice}>{me.seasonNotice}</Text>
+                ) : null}
                 <View style={styles.pointsRow}>
                   <View style={styles.pointBox}>
                     <Text style={styles.pointLabel}>保留中</Text>

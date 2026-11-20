@@ -307,6 +307,7 @@ async function handleMe(env, cfg, account) {
     payoutAddress: account.payout_address || null,
     payoutEnabled: payout.enabled,
     payoutReason: payout.reason,
+    seasonNotice: cfg.seasonNotice || null,
     config: {
       dailyEarnCapPoints: cfg.dailyEarnCapPoints,
       maxAttemptsPerDay: cfg.maxAttemptsPerDay,
